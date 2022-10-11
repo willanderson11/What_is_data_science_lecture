@@ -1,0 +1,126 @@
+---
+title: "what_is_data_science_lecture"
+author: "William Anderson"
+date: "2022-10-11"
+output: html_document
+---
+
+```{r, message = FALSE}
+library(tidyverse)
+library(dplyr)
+library(p8105.datasets)
+library(leaflet)
+
+data(nyc_airbnb)
+
+nyc_airbnb = 
+  nyc_airbnb %>%
+  rename(borough = neighbourhood_group) %>%
+  mutate(stars = review_scores_location / 2)
+
+view(nyc_airbnb)
+```
+
+```{r}
+most_popular = 
+  nyc_airbnb %>%
+  group_by(neighbourhood, borough) %>%
+  distinct() %>%
+  summarize(n_obs = n()) %>%
+  ungroup() %>%
+  group_by(borough) %>%
+  mutate(rank = min_rank(desc(n_obs))) %>%
+  filter(rank < 5) %>%
+  arrange(borough, n_obs)
+
+most_popular
+```
+
+let's look at price
+
+```{r}
+nyc_airbnb %>%
+  group_by(borough, room_type) %>%
+  summarize(
+    mean_price = mean(price, na.rm = TRUE)
+  ) %>%
+  pivot_wider(
+    names_from = room_type,
+    values_from = mean_price
+  )
+
+```
+
+
+let's look at price distributions
+
+```{r}
+nyc_airbnb %>%
+  filter(
+    borough == "Manhattan", 
+    room_type == "Entire home/apt",
+    price < 1000) %>%
+  
+  ggplot(aes(x = price)) + 
+  geom_histogram() + 
+  facet_grid(. ~ room_type)
+```
+
+price vs rating
+
+```{r}
+nyc_airbnb %>%
+  filter(borough == "Manhattan") %>%
+  ggplot(aes(x = stars, y = price)) + 
+  geom_point() + 
+  facet_grid(. ~ room_type)
+```
+
+
+somewhat fancy boxplot for one box of price for every borough of nyc
+
+```{r}
+nyc_airbnb %>%
+  filter(borough == "Manhattan") %>%
+  group_by(neighbourhood) %>%
+  summarize(mean_price = mean(price, na.rm = TRUE)) %>%
+  arrange(desc(mean_price))
+```
+
+```{r}
+nyc_airbnb %>%
+  filter(borough == "Manhattan",
+         room_type == "Entire home/apt",
+         price <= 1000) %>%
+  mutate(
+    neighbourhood = fct_reorder(neighbourhood, price)) %>%
+  ggplot(aes(x = neighbourhood, y = price)) + 
+  geom_boxplot() + 
+  coord_flip()
+```
+
+Price vs location, sample_n takes a random sample from the dataset to downsize
+
+```{r}
+nyc_airbnb %>%
+  filter(borough == "Manhattan",
+         room_type == "Entire home/apt",
+         price <= 1000) %>%
+  sample_n(2000) %>%
+  ggplot(aes(x = lat, y = long, color = price)) + 
+  geom_point(alpha = 0.5)
+```
+
+
+making a map of the data on the actual nyc map
+```{r}
+nyc_airbnb %>%
+  filter(borough == "Manhattan",
+         room_type == "Entire home/apt",
+         price <= 1000) %>%
+  sample_n(1000) %>%
+  leaflet() %>%
+  addTiles() %>%
+  addMarkers(~lat, ~long)
+```
+
